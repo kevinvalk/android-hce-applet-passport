@@ -10,8 +10,8 @@ public class Passport
 	private String dateOfExpiry;
 	
 	// Key information
-	public byte[] initialKeySeed;
-	public SecretKey initialMacKey, initialEncKey;
+	public byte[] mutualKeySeed;
+	public SecretKey mutualMacKey = null, mutualEncKey = null;
 	public SecretKey macKey = null, encKey = null;
 
 	// State information
@@ -32,6 +32,9 @@ public class Passport
 	public boolean calculateInitialKey()
 	{
 		// TODO: Calculate initial key based on doc, dob, doe
+		mutualKeySeed = Crypto.computeKeySeed(documentNo, dateOfBirth, dateOfExpiry);
+		mutualEncKey = Crypto.deriveKey(mutualKeySeed, Crypto.ENC_MODE);
+		mutualMacKey = Crypto.deriveKey(mutualKeySeed, Crypto.MAC_MODE);
 		return true;
 	}
 	
@@ -59,6 +62,11 @@ public class Passport
     public boolean hasMutuallyAuthenticated()
     {
     	return (macKey != null && encKey != null);
+    }
+    
+    public boolean hasMutualAuthenticationKeys()
+    {
+    	return (mutualMacKey != null && mutualEncKey != null);
     }
     
     public boolean isLocked()

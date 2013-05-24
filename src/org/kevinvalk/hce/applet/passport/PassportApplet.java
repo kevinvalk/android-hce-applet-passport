@@ -1,11 +1,10 @@
 package org.kevinvalk.hce.applet.passport;
 
+import org.kevinvalk.hce.applet.passport.apdu.*;
 import org.kevinvalk.hce.framework.Apdu;
 import org.kevinvalk.hce.framework.Applet;
 import org.kevinvalk.hce.framework.Iso7816;
 import org.kevinvalk.hce.framework.IsoException;
-
-import android.util.Log;
 
 public class PassportApplet extends Applet
 {
@@ -13,12 +12,6 @@ public class PassportApplet extends Applet
 	private static final String APPLET_NAME = "e-passport";
 	private static final byte[] APPLET_AID = { (byte) 0xA0, 0x00, 0x00, 0x02, 0x47, 0x10, 0x01 };
 
-	
-	static public void d(String msg)
-	{
-		Log.d("EPASS", msg);
-	}
-	
 	public PassportApplet(Passport passport)
 	{
 		this.passport = passport;
@@ -34,20 +27,28 @@ public class PassportApplet extends Applet
 		do
 		{
 			try
-			{
+			{		
+				d("Recv apdu: %s", toHex(apdu.getBuffer()));
 				Apdu response = handleApdu(apdu);
-				
 				
 				// Check if we have response left
 				if (response != null)
+				{
+					d("Send apdu: %s", toHex(response.getBuffer()));
 					apdu = sendApdu(response);
+				}
 				else
+				{
+					// TODO: Keep alive
 					isRunning = false;
+				}
 			}
 			catch(IsoException iso)
 			{
 				// We got an soft error so send response to our terminal
-				apdu = sendApdu(new Apdu(iso.getErrorCode()));
+				Apdu state = new Apdu(iso.getErrorCode());
+				d("Send apdu: %s", toHex(state.getBuffer()));
+				apdu = sendApdu(state);
 			}
 			catch(Exception e)
 			{
@@ -62,20 +63,18 @@ public class PassportApplet extends Applet
 	@Override
 	public Apdu handleApdu(Apdu apdu)
 	{
-		Apdu response;
+		Apdu response = null;
         switch(apdu.header.ins)
         {
         	case Constant.INS_SELECT_FILE:
         		response = apduSelectFile(apdu);
         	break;
         	case Constant.INS_GET_CHALLENGE:
-        		//response = apduGetChallenge(cla, ins, p1, p2, lc, le, protectedApdu, buffer);
+        		response = apduGetChallenge(apdu);
         	break;
         	case Constant.INS_EXTERNAL_AUTHENTICATE:
                 //response = apduExternalAuthenticate(cla, ins, p1, p2, lc, le, protectedApdu, buffer);
         	break;
-        	default:
-        		response = null;
         }
 		return response;
 	}
@@ -85,6 +84,38 @@ public class PassportApplet extends Applet
 	{
 		if (passport.isLocked() || ! passport.hasMutuallyAuthenticated())
             IsoException.throwIt(Iso7816.SW_SECURITY_STATUS_NOT_SATISFIED);
+		
+		if (apdu.getLc() != 2)
+			IsoException.throwIt(Iso7816.SW_WRONG_LENGTH);
+
+		// Get the file id
+		short fid = apdu.getShort(Iso7816.OFFSET_CDATA);
+		d("Selecting file %d", fid);
+		
+		// TODO: Implement file system
+		IsoException.throwIt(Iso7816.SW_FILE_NOT_FOUND);
+		
+		return null;
+	}
+	
+	/**
+	 * Only supports BAC
+	 * @param apdu
+	 * @return
+	 */
+	private Apdu apduGetChallenge(Apdu apdu)
+	{
+		if ( ! passport.hasMutualAuthenticationKeys() || passport.hasMutuallyAuthenticated())
+			IsoException.throwIt(Iso7816.SW_SECURITY_STATUS_NOT_SATISFIED);
+		
+	    if (apdu.getLc() != 8)
+	    	IsoException.throwIt(Iso7816.SW_WRONG_LENGTH);
+	    
+	    ChallengeApdu challenge = new ChallengeApdu();
+	    challenge.rnd = new byte[] { 0x46, 0x08, (byte) 0xF9, 0x19, (byte) 0x88, 0x70, 0x22, 0x12 };
+	    
+	    passport.state |= Constant.STATE_CHALLENGED;
+	    return challenge.toApdu();
 	}
 	
 	@Override
