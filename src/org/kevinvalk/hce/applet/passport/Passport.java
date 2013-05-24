@@ -2,6 +2,8 @@ package org.kevinvalk.hce.applet.passport;
 
 import javax.crypto.SecretKey;
 
+import org.kevinvalk.hce.framework.Applet;
+
 public class Passport
 {
 	// MRZ information
@@ -35,6 +37,11 @@ public class Passport
 		mutualKeySeed = Crypto.computeKeySeed(documentNo, dateOfBirth, dateOfExpiry);
 		mutualEncKey = Crypto.deriveKey(mutualKeySeed, Crypto.ENC_MODE);
 		mutualMacKey = Crypto.deriveKey(mutualKeySeed, Crypto.MAC_MODE);
+
+		Applet.d("CRYPTO", "Keyseed: %s", Applet.toSHex(mutualKeySeed));
+		Applet.d("CRYPTO", "Kenc: %s", Applet.toSHex(mutualEncKey.getEncoded()));
+		Applet.d("CRYPTO", "Kmac: %s", Applet.toSHex(mutualMacKey.getEncoded()));
+		
 		return true;
 	}
 	
