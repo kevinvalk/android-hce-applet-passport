@@ -28,13 +28,11 @@ public class PassportApplet extends Applet
 		{
 			try
 			{		
-				d("Recv apdu: %s", toHex(apdu.getBuffer()));
 				Apdu response = handleApdu(apdu);
 				
 				// Check if we have response left
 				if (response != null)
 				{
-					d("Send apdu: %s", toHex(response.getBuffer()));
 					apdu = sendApdu(response);
 				}
 				else
@@ -46,9 +44,7 @@ public class PassportApplet extends Applet
 			catch(IsoException iso)
 			{
 				// We got an soft error so send response to our terminal
-				Apdu state = new Apdu(iso.getErrorCode());
-				d("Send apdu: %s", toHex(state.getBuffer()));
-				apdu = sendApdu(state);
+				apdu = sendApdu(new Apdu(iso.getErrorCode()));
 			}
 			catch(Exception e)
 			{

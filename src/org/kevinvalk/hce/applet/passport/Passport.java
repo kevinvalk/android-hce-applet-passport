@@ -38,9 +38,9 @@ public class Passport
 		mutualEncKey = Crypto.deriveKey(mutualKeySeed, Crypto.ENC_MODE);
 		mutualMacKey = Crypto.deriveKey(mutualKeySeed, Crypto.MAC_MODE);
 
-		Applet.d("CRYPTO", "Keyseed: %s", Applet.toSHex(mutualKeySeed));
-		Applet.d("CRYPTO", "Kenc: %s", Applet.toSHex(mutualEncKey.getEncoded()));
-		Applet.d("CRYPTO", "Kmac: %s", Applet.toSHex(mutualMacKey.getEncoded()));
+		Applet.sd("CRYPTO", "Keyseed: %s", Applet.toSHex(mutualKeySeed));
+		Applet.sd("CRYPTO", "Kenc: %s", Applet.toSHex(mutualEncKey.getEncoded()));
+		Applet.sd("CRYPTO", "Kmac: %s", Applet.toSHex(mutualMacKey.getEncoded()));
 		
 		return true;
 	}
