@@ -11,10 +11,15 @@ public class Passport
 	private String dateOfBirth;
 	private String dateOfExpiry;
 	
-	// Key information
+	// Mutual Key Information
 	public byte[] mutualKeySeed;
 	public SecretKey mutualMacKey = null, mutualEncKey = null;
-	public SecretKey macKey = null, encKey = null;
+	
+	// Session Key Information
+	public byte[] sessionRandom;
+	public byte[] sessionKey;
+	public SecretKey sessionMacKey = null, sessionEncKey = null;
+
 
 	// State information
 	public int state;
@@ -68,7 +73,7 @@ public class Passport
 	/*** State properties ***/
     public boolean hasMutuallyAuthenticated()
     {
-    	return (macKey != null && encKey != null);
+    	return (sessionMacKey != null && sessionEncKey != null);
     }
     
     public boolean hasMutualAuthenticationKeys()
@@ -79,6 +84,11 @@ public class Passport
     public boolean isLocked()
     {
         return getState(Constant.STATE_LOCKED);
+    }
+    
+    public boolean isChallenged()
+    {
+    	return getState(Constant.STATE_CHALLENGED);
     }
     
     public boolean getState(int state)

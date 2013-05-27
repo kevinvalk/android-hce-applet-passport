@@ -7,7 +7,7 @@ public class Constant
 	public static final short STATE_CHALLENGED = 2;
     
 	/* for authentication */
-    public static final byte INS_EXTERNAL_AUTHENTICATE = (byte) 0x82;
+    public static final byte INS_MUTUAL_AUTHENTICATE = (byte) 0x82;
 	public static final byte INS_GET_CHALLENGE = (byte) 0x84;
 	public static final byte CLA_PROTECTED_APDU = 0x0c;
 	public static final byte INS_INTERNAL_AUTHENTICATE = (byte) 0x88;

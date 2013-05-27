@@ -1,5 +1,6 @@
 package org.kevinvalk.hce.applet.passport;
 
+import java.io.ByteArrayOutputStream;
 import java.security.MessageDigest;
 import java.util.Arrays;
 
@@ -9,6 +10,8 @@ import javax.crypto.SecretKey;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.DESedeKeySpec;
 import javax.crypto.spec.IvParameterSpec;
+
+import org.kevinvalk.hce.framework.Applet;
 
 public class Crypto
 {
@@ -80,12 +83,50 @@ public class Crypto
 				macEngine = Mac.getInstance("ISO9797Alg3Mac", new org.spongycastle.jce.provider.BouncyCastleProvider());
 			
 			macEngine.init(key);
-			return macEngine.doFinal(cipher);
+			return macEngine.doFinal(pad(cipher));
     	}
 		catch(Exception e)
 		{
 			throw new RuntimeException("Failed to encrypt buffer");
 		}
+	}
+	
+	/**
+	 * Pads the input <code>in</code> according to ISO9797-1 padding method 2.
+	 *
+	 * @param in input
+	 *
+	 * @return padded output
+	 */
+	public static byte[] pad(/*@ non_null */ byte[] in) {
+		return pad(in, 0, in.length);
+	}
+
+	/*@ requires 0 <= offset && offset < length;
+	  @ requires 0 <= length && length <= in.length;
+	 */
+	public static byte[] pad(/*@ non_null */ byte[] in,
+			int offset, int length) {
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		out.write(in, offset, length);
+		out.write((byte)0x80);
+		while (out.size() % 8 != 0) {
+			out.write((byte)0x00);
+		}
+		return out.toByteArray();
+	}
+
+	public static byte[] unpad(byte[] in) {
+		int i = in.length - 1;
+		while (i >= 0 && in[i] == 0x00) {
+			i--;
+		}
+		if ((in[i] & 0xFF) != 0x80) {
+			throw new IllegalStateException("unpad expected constant 0x80, found 0x" + Integer.toHexString((in[i] & 0x000000FF)) + "\nDEBUG: in = " + Applet.toHex(in) + ", index = " + i);
+		}
+		byte[] out = new byte[i];
+		System.arraycopy(in, 0, out, 0, i);
+		return out;
 	}
 
 	/**
@@ -98,13 +139,15 @@ public class Crypto
 	 */
 	public static SecretKey deriveKey(byte[] keySeed, int mode)
 	{
-		try
+				try
 		{
 			MessageDigest shaDigest = MessageDigest.getInstance("SHA1");
 			shaDigest.update(keySeed);
 			byte[] c = { 0x00, 0x00, 0x00, (byte)mode };
 			shaDigest.update(c);
+			
 			byte[] hash = shaDigest.digest();
+			Applet.sd("CRYPTO", "Mode %d, Seed: %s, Key: %s\n", mode, Applet.toHex(keySeed), Applet.toHex(hash));
 			byte[] key = new byte[24];
 			System.arraycopy(hash, 0, key, 0, 8);
 			System.arraycopy(hash, 8, key, 8, 8);

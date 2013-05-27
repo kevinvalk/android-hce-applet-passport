@@ -1,6 +1,9 @@
 package org.kevinvalk.hce.applet.passport;
 
+import java.util.Arrays;
+
 import org.kevinvalk.hce.applet.passport.apdu.*;
+import org.kevinvalk.hce.applet.passport.apdu.structure.*;
 import org.kevinvalk.hce.framework.Apdu;
 import org.kevinvalk.hce.framework.Applet;
 import org.kevinvalk.hce.framework.Iso7816;
@@ -68,8 +71,8 @@ public class PassportApplet extends Applet
         	case Constant.INS_GET_CHALLENGE:
         		response = apduGetChallenge(apdu);
         	break;
-        	case Constant.INS_EXTERNAL_AUTHENTICATE:
-                //response = apduExternalAuthenticate(cla, ins, p1, p2, lc, le, protectedApdu, buffer);
+        	case Constant.INS_MUTUAL_AUTHENTICATE:
+                response = apduMutualAuthenticate(apdu);
         	break;
         }
 		return response;
@@ -104,14 +107,52 @@ public class PassportApplet extends Applet
 		if ( ! passport.hasMutualAuthenticationKeys() || passport.hasMutuallyAuthenticated())
 			IsoException.throwIt(Iso7816.SW_SECURITY_STATUS_NOT_SATISFIED);
 		
-	    if (apdu.getLc() != 8)
+	    if (apdu.getLc() != 8) // In reality this is actually the Le field
 	    	IsoException.throwIt(Iso7816.SW_WRONG_LENGTH);
 	    
+	    passport.sessionRandom = new byte[] { 0x46, 0x08, (byte) 0xF9, 0x19, (byte) 0x88, 0x70, 0x22, 0x12 };
 	    ChallengeApdu challenge = new ChallengeApdu();
-	    challenge.rnd = new byte[] { 0x46, 0x08, (byte) 0xF9, 0x19, (byte) 0x88, 0x70, 0x22, 0x12 };
+	    challenge.rnd = passport.sessionRandom;
 	    
 	    passport.state |= Constant.STATE_CHALLENGED;
 	    return challenge.toApdu();
+	}
+	
+	private Apdu apduMutualAuthenticate(Apdu apdu_)
+	{
+		if ( ! passport.isChallenged() || passport.hasMutuallyAuthenticated())
+			IsoException.throwIt(Iso7816.SW_SECURITY_STATUS_NOT_SATISFIED);
+		
+		MutualAuthenticateApdu apdu = MutualAuthenticateApdu.fromApdu(apdu_);
+		
+		// Check if its correct length
+		if (apdu.lc != MutualAuthenticateApdu.getIfdLength() + Constant.MAC_LENGTH)
+			IsoException.throwIt(Iso7816.SW_WRONG_LENGTH);
+			
+        // Step (a) verify by MAC[K_MAC](EIFD) == MIFD
+        if ( ! Crypto.verifyMac(apdu.getMacIfd(), Crypto.getMac(apdu.getEncIfd(), passport.mutualMacKey)))
+        	IsoException.throwIt(Iso7816.SW_SECURITY_STATUS_NOT_SATISFIED);
+        
+        // Step (b) decrypt EIFD by D[K_ENC](EIFD) = PIFD
+        MutualAuthenticateStructure data = apdu.getData(passport.mutualEncKey);
+        
+        // Step (c) extract IFD and see if it is correct
+        if (Arrays.equals(passport.sessionRandom, data.randomTo))
+        	IsoException.throwIt(Iso7816.SW_SECURITY_STATUS_NOT_SATISFIED);
+        else
+        	d("Correct RND ICC");
+        
+        // Step (d) generate keying material K.ICC
+        //byte[] kIcc = Util.getRandom(KEYMATERIAL_LENGTH);
+        passport.sessionKey = new byte[] { 0x0B, 0x4F, (byte) 0x80, 0x32, 0x3E, (byte) 0xB3, 0x19, 0x1C, (byte) 0xB0, 0x49, 0x70, (byte) 0xCB, 0x40, 0x52, 0x79, 0x0B };
+        
+        // Step (e) generate the R = RND.ICC || RND.IFD || K.ICC
+        MutualAuthenticateStructure responseData = new MutualAuthenticateStructure();
+        responseData.randomFrom = passport.sessionRandom;
+        responseData.randomTo = data.randomFrom;
+        responseData.key = passport.sessionKey;
+        
+        return null;
 	}
 	
 	@Override
