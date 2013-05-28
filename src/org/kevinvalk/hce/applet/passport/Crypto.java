@@ -11,7 +11,7 @@ import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.DESedeKeySpec;
 import javax.crypto.spec.IvParameterSpec;
 
-import org.kevinvalk.hce.framework.Applet;
+import org.kevinvalk.hce.framework.Util;
 
 public class Crypto
 {
@@ -122,7 +122,7 @@ public class Crypto
 			i--;
 		}
 		if ((in[i] & 0xFF) != 0x80) {
-			throw new IllegalStateException("unpad expected constant 0x80, found 0x" + Integer.toHexString((in[i] & 0x000000FF)) + "\nDEBUG: in = " + Applet.toHex(in) + ", index = " + i);
+			throw new IllegalStateException("unpad expected constant 0x80, found 0x" + Integer.toHexString((in[i] & 0x000000FF)) + "\nDEBUG: in = " + Util.toHex(in) + ", index = " + i);
 		}
 		byte[] out = new byte[i];
 		System.arraycopy(in, 0, out, 0, i);
@@ -147,7 +147,7 @@ public class Crypto
 			shaDigest.update(c);
 			
 			byte[] hash = shaDigest.digest();
-			Applet.sd("CRYPTO", "Mode %d, Seed: %s, Key: %s\n", mode, Applet.toHex(keySeed), Applet.toHex(hash));
+			Util.d("CRYPTO", "Mode %d, Seed: %s, Key: %s\n", mode, Util.toHex(keySeed), Util.toHex(hash));
 			byte[] key = new byte[24];
 			System.arraycopy(hash, 0, key, 0, 8);
 			System.arraycopy(hash, 8, key, 8, 8);

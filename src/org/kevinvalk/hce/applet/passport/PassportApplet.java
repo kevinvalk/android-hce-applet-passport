@@ -20,45 +20,14 @@ public class PassportApplet extends Applet
 	}
 	
 	@Override
-	public void run()
+	public void select()
 	{
-		// We are running and we can send we are OK
-		isRunning = true;
-		
-		// Lets start handling all incomming traffic
-		do
-		{
-			try
-			{		
-				ResponseApdu response = handleApdu(new CommandApdu(apdu));
-				
-				// Check if we have response left
-				if (response != null)
-				{
-					apdu = sendApdu(response);
-				}
-				else
-				{
-					// TODO: Keep alive
-					isRunning = false;
-				}
-			}
-			catch(IsoException iso)
-			{
-				// We got an soft error so send response to our terminal
-				apdu = sendApdu(new ResponseApdu(iso.getErrorCode()));
-			}
-			catch(Exception e)
-			{
-				isRunning = false;
-				d("Caught a real bad exception");
-			}
-		}
-		while(isRunning && apdu != null);
-		d("Stopping");
+		// TODO: Reset passport
+		d("Reselected");
 	}
-
-	public ResponseApdu handleApdu(CommandApdu apdu)
+	
+	@Override
+	public ResponseApdu process(CommandApdu apdu) throws IsoException
 	{
 		ResponseApdu response = null;
         switch(apdu.ins)
@@ -164,5 +133,4 @@ public class PassportApplet extends Applet
 	{
 		return APPLET_AID;
 	}
-
 }
