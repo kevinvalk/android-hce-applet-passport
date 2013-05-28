@@ -16,8 +16,9 @@ public class Passport
 	public SecretKey mutualMacKey = null, mutualEncKey = null;
 	
 	// Session Key Information
+	public long ssc;
 	public byte[] sessionRandom;
-	public byte[] sessionKey;
+	public byte[] sessionKeySeed;
 	public SecretKey sessionMacKey = null, sessionEncKey = null;
 
 
@@ -36,9 +37,21 @@ public class Passport
 		calculateInitialKey();
 	}
 	
+	public void reset()
+	{
+		// Set the initial state
+		state = Constant.STATE_LOCKED;
+		
+		// Reset the session
+		ssc = 0;
+		sessionRandom = null;
+		sessionKeySeed = null;
+		sessionEncKey = null;
+		sessionMacKey = null;
+	}
+	
 	public boolean calculateInitialKey()
 	{
-		// TODO: Calculate initial key based on doc, dob, doe
 		mutualKeySeed = Crypto.computeKeySeed(documentNo, dateOfBirth, dateOfExpiry);
 		mutualEncKey = Crypto.deriveKey(mutualKeySeed, Crypto.ENC_MODE);
 		mutualMacKey = Crypto.deriveKey(mutualKeySeed, Crypto.MAC_MODE);

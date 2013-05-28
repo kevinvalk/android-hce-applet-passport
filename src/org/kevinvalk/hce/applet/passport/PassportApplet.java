@@ -7,6 +7,7 @@ import org.kevinvalk.hce.framework.apdu.*;
 import org.kevinvalk.hce.framework.Applet;
 import org.kevinvalk.hce.framework.Iso7816;
 import org.kevinvalk.hce.framework.IsoException;
+import org.kevinvalk.hce.framework.Util;
 
 public class PassportApplet extends Applet
 {
@@ -22,8 +23,8 @@ public class PassportApplet extends Applet
 	@Override
 	public void select()
 	{
-		// TODO: Reset passport
-		d("Reselected");
+		d("Resetting the passport");
+		passport.reset();
 	}
 	
 	@Override
@@ -108,16 +109,30 @@ public class PassportApplet extends Applet
         
         // Step (d) generate keying material K.ICC
         //byte[] kIcc = Util.getRandom(KEYMATERIAL_LENGTH);
-        passport.sessionKey = new byte[] { 0x0B, 0x4F, (byte) 0x80, 0x32, 0x3E, (byte) 0xB3, 0x19, 0x1C, (byte) 0xB0, 0x49, 0x70, (byte) 0xCB, 0x40, 0x52, 0x79, 0x0B };
+        passport.sessionKeySeed = new byte[] { 0x0B, 0x4F, (byte) 0x80, 0x32, 0x3E, (byte) 0xB3, 0x19, 0x1C, (byte) 0xB0, 0x49, 0x70, (byte) 0xCB, 0x40, 0x52, 0x79, 0x0B };
         
         // Step (e) generate the R = RND.ICC || RND.IFD || K.ICC
         MutualAuthenticate response = new MutualAuthenticate();
         response.randomFrom = passport.sessionRandom;
         response.randomTo = data.randomFrom;
-        response.key = passport.sessionKey;
+        response.key = passport.sessionKeySeed;
         
-        // TODO: Generate session keys
+        // Calculate the session information
+        passport.sessionKeySeed = Util.xorArray(data.key, response.key);
+        passport.sessionEncKey = Crypto.deriveKey(passport.sessionKeySeed, Crypto.ENC_MODE);
+        passport.sessionMacKey = Crypto.deriveKey(passport.sessionKeySeed, Crypto.MAC_MODE);
+        passport.ssc = Util.getSomething(passport.sessionRandom, 4, 4) << 32 | Util.getSomething(data.randomFrom, 4, 4);
         
+		d("KEYSEED: %s\nRND.IFD: %s\nRND.ICC: %s\nK.IFD: %s\nK.ICC: %s\nKseed: %s\nSSC: %s\n",
+			Util.toHex(passport.mutualKeySeed),
+			Util.toHex(data.randomFrom),
+			Util.toHex(passport.sessionRandom),
+			Util.toHex(data.key),
+			Util.toHex(response.key),
+			Util.toHex(passport.sessionKeySeed),
+			Util.toHex(Util.toBytes(passport.ssc))
+		);
+				
         // Step (f, g, h) send the cryptogram and mac back
         return new ResponseApdu(response.getEncoded(passport.mutualMacKey, passport.mutualEncKey), Iso7816.SW_NO_ERROR);
 	}
