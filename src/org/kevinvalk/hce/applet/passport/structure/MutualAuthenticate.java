@@ -1,6 +1,9 @@
 package org.kevinvalk.hce.applet.passport.structure;
 
+import javax.crypto.SecretKey;
+
 import org.kevinvalk.hce.applet.passport.Constant;
+import org.kevinvalk.hce.applet.passport.Crypto;
 import org.kevinvalk.hce.framework.Iso7816;
 import org.kevinvalk.hce.framework.IsoException;
 
@@ -50,5 +53,18 @@ public class MutualAuthenticate extends Structure
 		{
 			IsoException.throwIt(Iso7816.SW_INTERNAL_ERROR);
 		}
+	}
+	
+	public MutualAuthenticate(byte[] data, SecretKey encKey)
+	{
+		this(Crypto.decrypt(data, encKey));
+	}
+	
+	public byte[] getEncoded(SecretKey macKey, SecretKey encKey)
+	{
+		byte[] encoded = new byte[Constant.LC_MUTUAL_AUTHENTICATE_TOTAL];
+		System.arraycopy(Crypto.encrypt(getBuffer(), encKey), 0, encoded, 0, Constant.LC_MUTUAL_AUTHENTICATE_DATA);
+		System.arraycopy(Crypto.getMac(getBuffer(), macKey), 0, encoded, Constant.LC_MUTUAL_AUTHENTICATE_DATA, Constant.MAC_LENGTH);
+		return encoded;
 	}
 }

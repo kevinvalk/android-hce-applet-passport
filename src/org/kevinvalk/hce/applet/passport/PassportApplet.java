@@ -131,7 +131,7 @@ public class PassportApplet extends Applet
         	IsoException.throwIt(Iso7816.SW_SECURITY_STATUS_NOT_SATISFIED);
         
         // Step (b) decrypt EIFD by D[K_ENC](EIFD) = PIFD
-        MutualAuthenticate data = new MutualAuthenticate(Crypto.decrypt(cipher, passport.mutualEncKey));
+        MutualAuthenticate data = new MutualAuthenticate(cipher, passport.mutualEncKey);
                 
         // Step (c) check if the random I (icc) send is the same as the terminal (ifd) send back
         if ( ! Arrays.equals(passport.sessionRandom, data.randomTo))
@@ -147,7 +147,10 @@ public class PassportApplet extends Applet
         response.randomTo = data.randomFrom;
         response.key = passport.sessionKey;
         
-        return new ResponseApdu(response.getBuffer(), Iso7816.SW_NO_ERROR);
+        // TODO: Generate session keys
+        
+        // Step (f, g, h) send the cryptogram and mac back
+        return new ResponseApdu(response.getEncoded(passport.mutualMacKey, passport.mutualEncKey), Iso7816.SW_NO_ERROR);
 	}
 	
 	@Override
