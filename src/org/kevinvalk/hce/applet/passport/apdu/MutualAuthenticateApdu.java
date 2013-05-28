@@ -1,15 +1,15 @@
 package org.kevinvalk.hce.applet.passport.apdu;
 
-import java.util.Arrays;
-
 import javax.crypto.SecretKey;
 
 import org.kevinvalk.hce.applet.passport.Constant;
 import org.kevinvalk.hce.applet.passport.Crypto;
 import org.kevinvalk.hce.applet.passport.apdu.structure.MutualAuthenticateStructure;
 import org.kevinvalk.hce.framework.Apdu;
+import org.kevinvalk.hce.framework.Iso7816;
+import org.kevinvalk.hce.framework.IsoException;
+import org.kevinvalk.hce.framework.apdu.BaseApdu;
 
-import struct.ArrayLengthMarker;
 import struct.JavaStruct;
 import struct.StructClass;
 import struct.StructException;
@@ -17,7 +17,7 @@ import struct.StructField;
 
 
 @StructClass
-public class MutualAuthenticateApdu
+public class MutualAuthenticateApdu extends BaseApdu
 {
 	@StructField(order = 0)
 	public byte cla;
@@ -32,61 +32,78 @@ public class MutualAuthenticateApdu
 	public byte p2;
 	
 	@StructField(order = 4)
-	@ArrayLengthMarker(fieldName = "cdata")
 	public byte lc;
 	
 	@StructField(order = 5)
-	public byte[] cdata;
+	public MutualAuthenticateStructure cdata = new MutualAuthenticateStructure();
 	
 	@StructField(order = 6)
+	public byte[] mac = new byte[Constant.MAC_LENGTH];
+	
+	@StructField(order = 7)
 	public byte le;
-	
-	
-	private MutualAuthenticateStructure dataStruct = null;
-	public MutualAuthenticateStructure getData(SecretKey key)
-	{
-		if (dataStruct == null)
-		{
-			dataStruct = new MutualAuthenticateStructure();
-			try
-			{
-				JavaStruct.unpack(dataStruct, Crypto.decrypt(getEncIfd(), key));
-			}
-			catch (StructException e)
-			{
-				throw new RuntimeException(e.getMessage());
-			}
-		}
 			
-		return dataStruct;
+	public MutualAuthenticateApdu(SecretKey encKey, SecretKey macKey)
+	{
+		this.encKey = encKey;
+		this.macKey = macKey;
+	}
+
+	@Override
+	public int expectedLc()
+	{
+		return (Constant.RND_LENGTH + Constant.RND_LENGTH + Constant.KEYMATERIAL_LENGTH) + Constant.MAC_LENGTH;
 	}
 	
-	public byte[] getEncIfd()
+	@Override
+	public Apdu toApdu()
 	{
-		return Arrays.copyOfRange(cdata, 0, lc-8);
-	}
-	
-	public byte[] getMacIfd()
-	{
-		return Arrays.copyOfRange(cdata, 32, lc);
-	}
-		
-	static final public int getIfdLength()
-	{
-		return Constant.RND_LENGTH + Constant.RND_LENGTH + Constant.KEYMATERIAL_LENGTH;
-	}
-	
-	static public MutualAuthenticateApdu fromApdu(Apdu apdu)
-	{
-		MutualAuthenticateApdu mutualAuthenticateApdu = new MutualAuthenticateApdu();
+		Apdu apdu = null;
 		try
 		{
-			JavaStruct.unpack(mutualAuthenticateApdu, apdu.getBuffer());
-			return mutualAuthenticateApdu;
+			// Encrypt
+			byte[] cipher = Crypto.encrypt(JavaStruct.pack(cdata), encKey);
+			JavaStruct.unpack(cdata, cipher);	
+			
+			// Calculate MAC
+			mac = Crypto.getMac(cipher, macKey);
+			
+			// Return it
+			apdu = new Apdu(JavaStruct.pack(this));
+		}
+		catch (StructException e)
+		{
+			IsoException.throwIt(Iso7816.SW_INTERNAL_ERROR);
+		}
+		return apdu;
+	}
+
+	public static MutualAuthenticateApdu fromApdu(Apdu apdu_, SecretKey encKey, SecretKey macKey)
+	{
+		// Save the keys	
+		MutualAuthenticateApdu apdu = new MutualAuthenticateApdu(encKey, macKey);
+		try
+		{
+			JavaStruct.unpack(apdu, apdu_.getBuffer());
+			
+			// Check MAC
+			apdu.isVerified = Crypto.verifyMac(apdu.mac, Crypto.getMac(JavaStruct.pack(apdu.cdata), apdu.macKey));
+			
+			// If MAC was good decrypt it
+			if (apdu.isVerified)
+				JavaStruct.unpack(apdu.cdata, Crypto.decrypt(JavaStruct.pack(apdu.cdata), apdu.encKey));			
+			
+			return apdu;
 		}
 		catch (StructException e)
 		{
 			throw new RuntimeException(e.getMessage());
 		}
+	}
+
+	@Override
+	public boolean isVerified()
+	{
+		return isVerified;
 	}
 }

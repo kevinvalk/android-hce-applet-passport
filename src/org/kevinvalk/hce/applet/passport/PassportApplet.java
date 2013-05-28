@@ -123,36 +123,31 @@ public class PassportApplet extends Applet
 		if ( ! passport.isChallenged() || passport.hasMutuallyAuthenticated())
 			IsoException.throwIt(Iso7816.SW_SECURITY_STATUS_NOT_SATISFIED);
 		
-		MutualAuthenticateApdu apdu = MutualAuthenticateApdu.fromApdu(apdu_);
+		MutualAuthenticateApdu apdu = MutualAuthenticateApdu.fromApdu(apdu_, passport.mutualEncKey, passport.mutualMacKey);
 		
 		// Check if its correct length
-		if (apdu.lc != MutualAuthenticateApdu.getIfdLength() + Constant.MAC_LENGTH)
+		if (apdu.lc != apdu.expectedLc())
 			IsoException.throwIt(Iso7816.SW_WRONG_LENGTH);
 			
         // Step (a) verify by MAC[K_MAC](EIFD) == MIFD
-        if ( ! Crypto.verifyMac(apdu.getMacIfd(), Crypto.getMac(apdu.getEncIfd(), passport.mutualMacKey)))
+        if ( ! apdu.isVerified())
         	IsoException.throwIt(Iso7816.SW_SECURITY_STATUS_NOT_SATISFIED);
-        
-        // Step (b) decrypt EIFD by D[K_ENC](EIFD) = PIFD
-        MutualAuthenticateStructure data = apdu.getData(passport.mutualEncKey);
-        
-        // Step (c) extract IFD and see if it is correct
-        if (Arrays.equals(passport.sessionRandom, data.randomTo))
+                
+        // Step (c) check if the random I (icc) send is the same as the terminal (ifd) send back
+        if ( ! Arrays.equals(passport.sessionRandom, apdu.cdata.randomTo))
         	IsoException.throwIt(Iso7816.SW_SECURITY_STATUS_NOT_SATISFIED);
-        else
-        	d("Correct RND ICC");
         
         // Step (d) generate keying material K.ICC
         //byte[] kIcc = Util.getRandom(KEYMATERIAL_LENGTH);
         passport.sessionKey = new byte[] { 0x0B, 0x4F, (byte) 0x80, 0x32, 0x3E, (byte) 0xB3, 0x19, 0x1C, (byte) 0xB0, 0x49, 0x70, (byte) 0xCB, 0x40, 0x52, 0x79, 0x0B };
         
         // Step (e) generate the R = RND.ICC || RND.IFD || K.ICC
-        MutualAuthenticateStructure responseData = new MutualAuthenticateStructure();
-        responseData.randomFrom = passport.sessionRandom;
-        responseData.randomTo = data.randomFrom;
-        responseData.key = passport.sessionKey;
+        MutualAuthenticateApdu response = new MutualAuthenticateApdu(passport.mutualEncKey, passport.mutualMacKey);
+        response.cdata.randomFrom = passport.sessionRandom;
+        response.cdata.randomTo = apdu.cdata.randomFrom;
+        response.cdata.key = passport.sessionKey;
         
-        return null;
+        return response.toApdu();
 	}
 	
 	@Override
