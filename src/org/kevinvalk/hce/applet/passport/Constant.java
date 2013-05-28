@@ -5,7 +5,7 @@ public class Constant
     /* States */
 	public static final short STATE_LOCKED = 1;
 	public static final short STATE_CHALLENGED = 2;
-    
+	    
 	/* for authentication */
     public static final byte INS_MUTUAL_AUTHENTICATE = (byte) 0x82;
 	public static final byte INS_GET_CHALLENGE = (byte) 0x84;
@@ -39,4 +39,8 @@ public class Constant
 	public static final byte MRZ_TAG = 0x62;
 	public static final byte ECPRIVATEKEY_TAG = 0x63;
 	public static final byte CVCERTIFICATE_TAG = 0x64;
+	
+	/* Usefull constants */
+	public static final int LC_MUTUAL_AUTHENTICATE_DATA = RND_LENGTH * 2 + KEY_LENGTH; 
+	public static final int LC_MUTUAL_AUTHENTICATE_TOTAL = LC_MUTUAL_AUTHENTICATE_DATA + MAC_LENGTH;
 }

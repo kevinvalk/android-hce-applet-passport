@@ -1,8 +1,12 @@
-package org.kevinvalk.hce.applet.passport.apdu.structure;
+package org.kevinvalk.hce.applet.passport.structure;
 
 import org.kevinvalk.hce.applet.passport.Constant;
+import org.kevinvalk.hce.framework.Iso7816;
+import org.kevinvalk.hce.framework.IsoException;
 
+import struct.JavaStruct;
 import struct.StructClass;
+import struct.StructException;
 import struct.StructField;
 
 /**
@@ -20,7 +24,7 @@ import struct.StructField;
  * key = K.ICC</code></p>
  */
 @StructClass
-public class MutualAuthenticateStructure
+public class MutualAuthenticate extends Structure
 {
 	@StructField(order = 0)
 	public byte[] randomFrom = new byte[Constant.RND_LENGTH];
@@ -30,4 +34,21 @@ public class MutualAuthenticateStructure
 	
 	@StructField(order = 2)
 	public byte[] key = new byte[Constant.KEY_LENGTH];
+	
+	public MutualAuthenticate()
+	{
+		
+	}
+	
+	public MutualAuthenticate(byte[] data)
+	{
+		try
+		{
+			JavaStruct.unpack(this, data);
+		}
+		catch (StructException e)
+		{
+			IsoException.throwIt(Iso7816.SW_INTERNAL_ERROR);
+		}
+	}
 }
