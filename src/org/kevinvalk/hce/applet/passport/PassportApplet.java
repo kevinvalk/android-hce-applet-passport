@@ -30,6 +30,13 @@ public class PassportApplet extends Applet
 	@Override
 	public ResponseApdu process(CommandApdu apdu) throws IsoException
 	{
+		// Firstly check if it is protected and if so unwrap it
+		boolean isProtected = (apdu.cla & Constant.CLA_PROTECTED_APDU) == Constant.CLA_PROTECTED_APDU;
+		if (isProtected)
+		{
+			apdu = SecureApdu.unwrapCommandApdu(apdu);
+		}
+		
 		ResponseApdu response = null;
         switch(apdu.ins)
         {
@@ -41,6 +48,9 @@ public class PassportApplet extends Applet
         	break;
         	case Constant.INS_MUTUAL_AUTHENTICATE:
                 response = apduMutualAuthenticate(apdu);
+        	break;
+        	default:
+        		response = new ResponseApdu(Iso7816.SW_INS_NOT_SUPPORTED);
         	break;
         }
 		return response;
